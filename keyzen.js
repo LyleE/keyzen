@@ -5,6 +5,13 @@ data.chars = " jfkdlsahgyturieowpqbnvmcxz6758493021`-=[]\\;',./ABCDEFGHIJKLMNOPQ
 data.consecutive = 10;
 data.word_length = 7;
 
+var stats = {};
+stats.history_max = 100;
+
+stats.history_head = {};
+stats.history_tail = {};
+stats.history_length = 0;
+stats.number_correct = 0;
 
 $(document).ready(function() {
     if (localStorage.data != undefined) {
@@ -35,7 +42,8 @@ function set_level(l) {
 
 function keyHandler(e) {
     var key = String.fromCharCode(e.which);
-    if(key == data.word[data.word_index]) {
+    var correct_key = (key == data.word[data.word_index]);
+    if(correct_key) {
         data.in_a_row[key] += 1;
         (new Audio("click.wav")).play();
     }
@@ -54,6 +62,7 @@ function keyHandler(e) {
         data.word_index = 0;
         data.word_errors = {};
     }
+    update_stats(correct_key);
     render();
     save();
 }
@@ -65,6 +74,40 @@ function level_up() {
     }
     l = Math.min(data.level + 1, data.chars.length);
     set_level(l);
+}
+
+function update_stats(latest_correct) {
+    var latest = {};
+    latest.correct = latest_correct;
+    latest.time = $.now();
+    
+    stats.history_tail.next = latest;
+    stats.history_tail = latest;
+    if(stats.history_length == 0)
+        stats.history_head = latest;
+    
+    if(stats.history_length < stats.history_max) { //history not full
+        stats.history_length++;
+        if(latest_correct)
+            stats.number_correct++;
+    } else { // history full
+        var past_correct = stats.history_head.correct;
+        
+        //computes the change in accuracy
+        stats.number_correct -= past_correct; //subtracts one if was correct "history_max" keys ago
+        stats.number_correct += latest_correct; //adds one if was correct last key
+        
+        //drop the linked list head node
+        stats.history_head = stats.history_head.next;
+    }
+}
+
+function reset_stats() {
+    stats.history_head = {};
+    stats.history_tail = {};
+    stats.history_length = 0;
+    stats.number_correct = 0;
+    render_stats();
 }
 
 
@@ -82,6 +125,7 @@ function render() {
     render_level();
     render_word();
     render_level_bar();
+    render_stats();
 }
 
 
@@ -154,6 +198,33 @@ function render_word() {
         word += "</span>";
     }
     $("#word").html("&nbsp;" + word);
+}
+
+function render_stats() {
+    var stats_str = "";
+    
+    if(stats.history_length > 0) {
+        stats_str += "Statistics (last "+ stats.history_length +" chars):";
+        
+        //Accuracy
+        var percentage = 100 * stats.number_correct / stats.history_length;
+        percentage = Math.floor(percentage*10)/10; //1 decimal place max
+        stats_str += "<br \>Accuracy: " + percentage + "% (";
+        stats_str += stats.number_correct + "/" + stats.history_length + " correct)";
+        
+        //Speed
+        if(stats.history_length > 1) {
+            var time_ms = stats.history_tail.time - stats.history_head.time;
+            var chars_per_minute = stats.history_length / (time_ms/60000);
+            chars_per_minute = Math.floor(chars_per_minute*100)/100; //2 decimal place max
+            
+            stats_str += "<br />Speed: " + chars_per_minute + " chars/minute";
+        }
+        
+        stats_str += "<br /><span id='stats-reset' onclick='reset_stats();'>[ Reset ]</span>"
+    }
+    
+    $("#stats").html(stats_str);
 }
 
 
