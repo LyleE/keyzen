@@ -1,5 +1,4 @@
 
-
 var data = {};
 data.chars = " jfkdlsahgyturieowpqbnvmcxz6758493021`-=[]\\;',./ABCDEFGHIJKLMNOPQRSTUVWXYZ~!@#$%^&*()_+{}|:\"<>?";
 data.consecutive = 10;
@@ -8,10 +7,7 @@ data.word_length = 7;
 var stats = {};
 stats.history_max = 100;
 
-stats.history_head = {};
-stats.history_tail = {};
-stats.history_length = 0;
-stats.number_correct = 0;
+stats.combo_landmarks = [25, 50, 100, 200, 300, 400, 500, 750, 1000];
 
 $(document).ready(function() {
     if (localStorage.data != undefined) {
@@ -22,6 +18,9 @@ $(document).ready(function() {
         set_level(1);
     }
     $(document).keypress(keyHandler);
+
+    $('#pop-up').hide();
+    reset_stats();
 });
 
 
@@ -100,6 +99,13 @@ function update_stats(latest_correct) {
         //drop the linked list head node
         stats.history_head = stats.history_head.next;
     }
+
+    if(latest_correct)
+        stats.combo++;
+    else
+        stats.combo = 0;
+    if(stats.combo_landmarks.indexOf(stats.combo) != -1)
+        pop_up('COMBO!', stats.combo + ' perfect in a row.');
 }
 
 function reset_stats() {
@@ -107,7 +113,7 @@ function reset_stats() {
     stats.history_tail = {};
     stats.history_length = 0;
     stats.number_correct = 0;
-    render_stats();
+    stats.combo = 0;
 }
 
 
@@ -120,6 +126,12 @@ function load() {
     data = JSON.parse(localStorage.data);
 }
 
+function pop_up(title, text) {
+    var pop_up = $('#pop-up');
+    pop_up.children('h2:first').html(title);
+    pop_up.children('span:first').html(text);
+    pop_up.slideDown('slow').delay('2000').fadeOut('slow');
+}
 
 function render() {
     render_level();
@@ -221,7 +233,7 @@ function render_stats() {
             stats_str += "<br />Speed: " + chars_per_minute + " chars/minute";
         }
         
-        stats_str += "<br /><span id='stats-reset' onclick='reset_stats();'>[ Reset ]</span>"
+        stats_str += "<br /><span id='stats-reset' onclick='reset_stats();render_stats();'>[ Reset ]</span>"
     }
     
     $("#stats").html(stats_str);
